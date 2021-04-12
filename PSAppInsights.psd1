@@ -54,7 +54,7 @@ DotNetFrameworkVersion = '4.5'
 # RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = @('C:\Users\alex.curley\Source\AzPowershell\PSAppInsights\Microsoft.ApplicationInsights.dll','C:\Users\alex.curley\Source\AzPowershell\PSAppInsights\System.Diagnostics.DiagnosticSource.dll')
+RequiredAssemblies = @("C:\users\curle\Source\PSAppInsights\Microsoft.ApplicationInsights.dll","C:\users\curle\Source\PSAppInsights\System.Diagnostics.DiagnosticSource.dll")
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()
@@ -72,13 +72,13 @@ RequiredAssemblies = @('C:\Users\alex.curley\Source\AzPowershell\PSAppInsights\M
 FunctionsToExport = 'New-TelemetryItem','New-TelemetryClient','New-TelemetryOperation','New-TelemetryRequest','Stop-TelemetryOperationRequest','New-TelemetryDependency','Update-TelemetryDependency','Stop-TelemetryOperationDependency','New-TelemetryEvent','New-TelemetryTrace','New-TelemetryException','Send-TelemetryData','Set-TelemetryKey'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-CmdletsToExport = '*'
+CmdletsToExport = @()
 
 # Variables to export from this module
-VariablesToExport = '*'
+VariablesToExport = 'PSAppInsights_conf'
 
 # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-AliasesToExport = '*'
+AliasesToExport = 'nti', 'ntc', 'nto', 'ntr', 'stor', 'ntd', 'utd', 'stod', 'nte', 'ntt', 'ntx', 'flush'
 
 # DSC resources to export from this module
 # DscResourcesToExport = @()

@@ -16,9 +16,9 @@ function New-TelemetryItem {
     using Microsoft.ApplicationInsights.Metrics.Extensibility;
     using System.Collections.Generic;
     using System.Linq;
-    
-     
-    
+
+
+
     namespace PSTelemetryHelper
     {
         public class TelemetryHelper
@@ -32,32 +32,32 @@ function New-TelemetryItem {
             {
                 return TeleClient.StartOperation<RequestTelemetry>(operationName, operationId, parentOperationId);
             }
-    
-     
-    
+
+
+
             public IOperationHolder<DependencyTelemetry> StartOperationDT(string operationName, string operationId, string parentOperationId)
             {
                 return TeleClient.StartOperation<DependencyTelemetry>(operationName, operationId, parentOperationId);
             }
-    
-     
-    
+
+
+
             public void StopOperationRT(IOperationHolder<RequestTelemetry> operation)
             {
                 TeleClient.StopOperation<RequestTelemetry>(operation);
                 operation.Dispose();
             }
-    
-     
-    
+
+
+
             public void StopOperationDT(IOperationHolder<DependencyTelemetry> operation)
             {
                 TeleClient.StopOperation<DependencyTelemetry>(operation);
                 operation.Dispose();
             }
-    
-     
-    
+
+
+
             //public MetricConfiguration GetMetricConfiguration(int seriesCountLimit = 10000, IEnumerable<int> valuesPerDimensionLimit = null, bool useIntegersOnly = true)
             //{
             //    if (valuesPerDimensionLimit == null)
@@ -70,9 +70,9 @@ function New-TelemetryItem {
             //    IMetricSeriesConfiguration seriesConfig = new MetricSeriesConfigurationForMeasurement(useIntegersOnly);
             //    return new MetricConfiguration(seriesCountLimit, valuesPerDimensionLimit, seriesConfig);
             //}
-    
-     
-    
+
+
+
             public MetricConfiguration GetMetricConfiguration(int seriesCountLimit = 10000, int valuesPerDimensionLimit = 1000, bool useIntegersOnly = true)
             {
                 IMetricSeriesConfiguration seriesConfig = new MetricSeriesConfigurationForMeasurement(useIntegersOnly);
@@ -137,7 +137,7 @@ function New-TelemetryItem {
                 }
             }
         }
-    }  
+    }
 "@
     if ($dllPath) {
         Add-Type -TypeDefinition $Source -IgnoreWarnings -ReferencedAssemblies $dllPath
@@ -145,7 +145,7 @@ function New-TelemetryItem {
     else {
         Add-Type -TypeDefinition $Source -IgnoreWarnings -ReferencedAssemblies 'Microsoft.ApplicationInsights','System.Diagnostics.DiagnosticSource','System.Runtime'
     }
-        
+
     return [PSTelemetryHelper.TelemetryHelper]::new($TClient)
 }
 New-Alias nti New-TelemetryItem
@@ -162,9 +162,9 @@ function New-TelemetryClient {
         $SendingInterval=10,
         [parameter(HelpMessage="Full path to Microsoft.ApplicationInsights.dll, if not using dll in this module.")]
         [string]
-        $dllPath  
+        $dllPath
     )
-    $aik = $appinsightskey    
+    $aik = $appinsightskey
     $oID = (new-guid).guid.split('-')[-1]
     $sID = (new-guid).guid.split('-')[-1]
     if ($dllPath) {
@@ -174,46 +174,46 @@ function New-TelemetryClient {
     [Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration]::Active.InstrumentationKey = $aik
     [Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration]::Active.DisableTelemetry = $false
     [Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration]::Active.TelemetryChannel.SendingInterval = New-TimeSpan -Seconds $SendingInterval
-    $config = [Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration]::Active    
+    $config = [Microsoft.ApplicationInsights.Extensibility.TelemetryConfiguration]::Active
     $OpInit = [Microsoft.ApplicationInsights.Extensibility.OperationCorrelationTelemetryInitializer]::new()
     $config.TelemetryInitializers.Add($OpInit)
-    $config.TelemetryInitializers | Where-Object { $_ -is 'Microsoft.ApplicationInsights.Extensibility.ITelemetryModule' } | % { $_.Initialise($config) }    
+    $config.TelemetryInitializers | Where-Object { $_ -is 'Microsoft.ApplicationInsights.Extensibility.ITelemetryModule' } | % { $_.Initialise($config) }
     #Create TelemetryClient object
     $client = [Microsoft.ApplicationInsights.TelemetryClient]::new($config)
     $client.InstrumentationKey = $aik
     $client.Context.Session.Id = $sID
     $client.Context.Operation.Id = $oID
     $client.Context.Operation.Name = $operationName
-    $client.Context.Device.Id = $env:COMPUTERNAME 
-    $client.Context.User.Id = $env:USERNAME 
+    $client.Context.Device.Id = $env:COMPUTERNAME
+    $client.Context.User.Id = $env:USERNAME
     return $client
 }
 New-Alias ntc New-TelemetryClient
 function New-TelemetryOperation {
-    #Create a new Telemetry Operation. The hashtable returned will be used for all further telemetry actions. 
+    #Create a new Telemetry Operation. The hashtable returned will be used for all further telemetry actions.
     param(
         [parameter(Mandatory, HelpMessage = "Name for the Operation")]
         [string]$OperationName,
         [parameter(HelpMessage = "Array of Names for metrics to track")]
-        [string[]]$Metrics 
+        [string[]]$Metrics
     )
-    $TClient = New-TelemetryClient -operationName $OperationName
+    $TClient = New-TelemetryClient -operationName $OperationName -AppInsightsKey $PSAppInsights_conf.AppInsightsKey
     $TItem = New-TelemetryItem -TClient $TClient
     $GlobalVar = @{
         TelemetryClient = $TClient
         OpID            = $TClient.Context.Operation.Id
-        TelemetryItem   = $TItem 
+        TelemetryItem   = $TItem
         Requests        = @{ }
     }
     if ($Metrics) {
         $GlobalVar.Add('TMetric', @{ })
-        $GLobalVar.Add('TMetricConfig', $TItem.GetMetricConfiguration())        
+        $GLobalVar.Add('TMetricConfig', $TItem.GetMetricConfiguration())
         Foreach ($Metric in $Metrics) {
             $MetricDefinition = $Metric -Split ','
             $TMetric = $GlobalVar.TelemetryItem.GetMetric($MetricDefinition[0], $GlobalVar.TMetricConfig, $MetricDefinition[1], $MetricDefinition[2])
             $GlobalVar.TMetric.Add($MetricDefinition[0], $TMetric)
         }
-    }   
+    }
     $global:PSDefaultParameterValues.Add("*Telemetry*:TClient",$GlobalVar)
     return $GlobalVar
 }
@@ -231,7 +231,7 @@ function New-TelemetryRequest {
         [string]
         $Parent = $null
     )
-    #Add the request to $TClient.Requests hashtable           
+    #Add the request to $TClient.Requests hashtable
     $TClient.Requests.Add($name, @($TClient.TelemetryItem.StartOperationRT($Name, $TClient.OpId, $Parent)))
     #Set parent context to the operation ID
     $TClient.Requests.$name.telemetry.context.operation.id = $TClient.OpId
@@ -302,7 +302,7 @@ function Update-TelemetryDependency {
     if ($Catch) {
         if (!$Code) { $Code = 404 }
         $DT.Telemetry.ResultCode = $Code
-        $DT.Telemetry.Success = $false 
+        $DT.Telemetry.Success = $false
     }
     else {
         if (!$Code) { $Code = 200 }
@@ -339,13 +339,13 @@ function New-TelemetryEvent {
         [parameter(HelpMessage="Property hashtable of [string],[double] key,value pairs")]
         [hashtable]
         $mhash
-         
+
     )
     $dictProperties = New-Object 'system.collections.generic.dictionary[[string],[string]]'
     $dubProperties = New-Object 'system.collections.generic.dictionary[[string],[double]]'
     if ($phash) {
         foreach ($h in $PHash.GetEnumerator() ) {
-            $dictProperties.Add($h.Name, $h.Value)   
+            $dictProperties.Add($h.Name, $h.Value)
         }
     }
     else {
@@ -353,13 +353,13 @@ function New-TelemetryEvent {
     }
     if ($mhash) {
         foreach ($h in $MHash.GetEnumerator() ) {
-            $dubProperties.Add($h.Name, $h.Value)   
+            $dubProperties.Add($h.Name, $h.Value)
         }
     }
     else {
         $dubProperties = $null
-    }    
-    $TClient.TelemetryClient.TrackEvent($message, $dictProperties, $dubProperties)   
+    }
+    $TClient.TelemetryClient.TrackEvent($message, $dictProperties, $dubProperties)
 }
 New-Alias nte New-TelemetryEvent
 function New-TelemetryTrace {
@@ -375,12 +375,12 @@ function New-TelemetryTrace {
         [validateSet('Critical','Warning','Information','Verbose','Warning',$null,'')]
         [string]
         $Severity
-         
+
     )
     if (!$Severity) {
         $Severity = 'Information'
     }
-    $TClient.TelemetryClient.TrackTrace($Message,$Severity)      
+    $TClient.TelemetryClient.TrackTrace($Message,$Severity)
 }
 New-Alias ntt New-TelemetryTrace
 function New-TelemetryException {
@@ -406,18 +406,11 @@ Function Send-TelemetryData {
     $TClient.TelemetryClient.Flush()
 }
 New-Alias flush Send-TelemetryData
-Function Set-TelemetryKey {
-    param(
-        [parameter(Mandatory,HelpMessage="Application Insights ingestion key")]
-        [string]$Key 
-    )
-    $global:PSDefaultParameterValues.Add("New-TelemetryClient:AppInsightsKey",$Key)
-}
 function newdict ($Hash) {
     $dictProperties = New-Object 'system.collections.generic.dictionary[[string],[string]]'
     foreach ($h in $Hash.GetEnumerator() ) {
-        $dictProperties.Add($h.Name, $h.Value)   
-    } 
+        $dictProperties.Add($h.Name, $h.Value)
+    }
     $dictProperties
 }
 Function Send-JobTelemetryMetrics {
@@ -425,27 +418,29 @@ Function Send-JobTelemetryMetrics {
         [parameter(Mandatory, HelpMessage = "TelemetryClient object created from New-TelemetryClient")]
         [hashtable]
         $TClient,
-        $job, 
+        $job,
         $MetricHash)
     #If the RSJob has an error, call .TrackException
-    if ($job.HasErrors) {    
+    if ($job.HasErrors) {
         if ($job.Error) {
             ntx $_.Error
         }
-    } 
-    #If Job has SessionCount or LoadIndexesCPU metric data, send it off to AI            
-    elseif ($job.Output) {    
+    }
+    #If Job has SessionCount or LoadIndexesCPU metric data, send it off to AI
+    elseif ($job.Output) {
         if (($job.Output.SessionCount.Count -ge 1) -and ($Null -ne $job.Output.SessionCount)) {
             # Write-host -foregroundcolor cyan "$($job.Output.SessionCount.DSG)"
             $job.Output.SessionCount | % {
                 $res = $MetricHash.TMetric.SessionCount.TrackValue($_.SCT, $_.DSG, $_.SRV)
             }
-        }                 
+        }
         if (($job.Output.LoadIndexesCPU.Count -ge 1) -and ($Null -ne $job.Output.LoadIndexesCPU)) {
             $job.Output.LoadIndexesCPU | % {
                 $res = $MetricHash.TMetric.LoadIndexesCPU.TrackValue($_.CPU, $_.DSG, $_.SRV)
             }
         }
-    }           
+    }
 }
 
+$PSAppInsights_conf = Import-PowerShellDataFile -Path $PSScriptRoot\conf.psd1
+Export-ModuleMember -Variable PSAppInsights_confj -Alias *
