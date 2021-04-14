@@ -54,7 +54,7 @@ DotNetFrameworkVersion = '4.5'
 # RequiredModules = @()
 
 # Assemblies that must be loaded prior to importing this module
-RequiredAssemblies = @("C:\users\curle\Source\PSAppInsights\Microsoft.ApplicationInsights.dll","C:\users\curle\Source\PSAppInsights\System.Diagnostics.DiagnosticSource.dll")
+RequiredAssemblies = @("C:\users\alex.curley\Source\PSAppInsights\Microsoft.ApplicationInsights.dll","C:\users\alex.curley\Source\PSAppInsights\System.Diagnostics.DiagnosticSource.dll")
 
 # Script files (.ps1) that are run in the caller's environment prior to importing this module.
 # ScriptsToProcess = @()

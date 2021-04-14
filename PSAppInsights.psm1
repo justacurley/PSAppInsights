@@ -143,7 +143,7 @@ function New-TelemetryItem {
         Add-Type -TypeDefinition $Source -IgnoreWarnings -ReferencedAssemblies $dllPath
     }
     else {
-        Add-Type -TypeDefinition $Source -IgnoreWarnings -ReferencedAssemblies 'Microsoft.ApplicationInsights','System.Diagnostics.DiagnosticSource','System.Runtime'
+        Add-Type -TypeDefinition $Source -IgnoreWarnings -ReferencedAssemblies 'Microsoft.ApplicationInsights', 'System.Diagnostics.DiagnosticSource', 'System.Runtime'
     }
 
     return [PSTelemetryHelper.TelemetryHelper]::new($TClient)
@@ -151,16 +151,16 @@ function New-TelemetryItem {
 New-Alias nti New-TelemetryItem
 function New-TelemetryClient {
     param (
-        [parameter(Mandatory,HelpMessage = "Name of the operation, the parent of all subsequent telemetry operations.")]
+        [parameter(Mandatory, HelpMessage = "Name of the operation, the parent of all subsequent telemetry operations.")]
         [string]
         $operationName,
-        [parameter(Mandatory,HelpMessage = "Application Insights Instrumentation Key.")]
+        [parameter(Mandatory, HelpMessage = "Application Insights Instrumentation Key.")]
         [string]
         $AppInsightsKey,
         [parameter(HelpMessage = "Interval (in seconds) that this telemetry client will send data to App Insights. Default 10.")]
         [int]
-        $SendingInterval=10,
-        [parameter(HelpMessage="Full path to Microsoft.ApplicationInsights.dll, if not using dll in this module.")]
+        $SendingInterval = 10,
+        [parameter(HelpMessage = "Full path to Microsoft.ApplicationInsights.dll, if not using dll in this module.")]
         [string]
         $dllPath
     )
@@ -214,7 +214,7 @@ function New-TelemetryOperation {
             $GlobalVar.TMetric.Add($MetricDefinition[0], $TMetric)
         }
     }
-    $global:PSDefaultParameterValues.Add("*Telemetry*:TClient",$GlobalVar)
+    $global:PSDefaultParameterValues["*Telemetry*:TClient"] = $GlobalVar
     return $GlobalVar
 }
 New-Alias nto New-TelemetryOperation
@@ -229,10 +229,24 @@ function New-TelemetryRequest {
         $Name,
         [parameter(HelpMessage = "Name of the parent request, defaults to Operation ID")]
         [string]
-        $Parent = $null
+        $ParentName
     )
+    #Get
+    $ParentID = $null
+    if (!$ParentName) {
+        foreach ($Command in (Get-PSCallStack)) {
+            if ($TClient.Requests.Keys -Contains $Command.Command) {
+                $ParentName = $Command.Command
+                $ParentId=$TClient.Requests.$ParentName.Telemetry.Id
+                break
+            }
+        }        
+    }
+    else {
+        $ParentID = $TClient.Requests.$ParentName.Telemetry.Id
+    }
     #Add the request to $TClient.Requests hashtable
-    $TClient.Requests.Add($name, @($TClient.TelemetryItem.StartOperationRT($Name, $TClient.OpId, $Parent)))
+    $TClient.Requests.Add($name, $TClient.TelemetryItem.StartOperationRT($Name, $TClient.OpId, $ParentID))
     #Set parent context to the operation ID
     $TClient.Requests.$name.telemetry.context.operation.id = $TClient.OpId
     $TClient.Requests.$name
@@ -254,10 +268,10 @@ Function Stop-TelemetryOperationRequest {
     )
     $RT.Telemetry.Success = $Success
     if (!$Code) {
-        If ($Success) {$Code=200}
-        else {$Code=404}
+        If ($Success) { $Code = 200 }
+        else { $Code = 404 }
     }
-    $RT.Telemetry.ResponseCode=$Code
+    $RT.Telemetry.ResponseCode = $Code
     $TClient.TelemetryItem.StopOperationRT($RT)
     # $TClient.Requests.Remove($RT.Telemetry.Name)
 }
@@ -330,13 +344,13 @@ function New-TelemetryEvent {
         [parameter(Mandatory, HelpMessage = "TelemetryClient object created from New-TelemetryClient")]
         [hashtable]
         $TClient,
-        [parameter(Mandatory,HelpMessage="Message for Event")]
+        [parameter(Mandatory, HelpMessage = "Message for Event")]
         [string]
         $message,
-        [parameter(HelpMessage="Property hashtable of [string],[string] key,value pairs")]
+        [parameter(HelpMessage = "Property hashtable of [string],[string] key,value pairs")]
         [hashtable]
         $phash,
-        [parameter(HelpMessage="Property hashtable of [string],[double] key,value pairs")]
+        [parameter(HelpMessage = "Property hashtable of [string],[double] key,value pairs")]
         [hashtable]
         $mhash
 
@@ -368,11 +382,11 @@ function New-TelemetryTrace {
         [parameter(Mandatory, HelpMessage = "TelemetryClient object created from New-TelemetryClient")]
         [hashtable]
         $TClient,
-        [parameter(Mandatory,HelpMessage="Message for Trace")]
+        [parameter(Mandatory, HelpMessage = "Message for Trace")]
         [string]
         $message,
-        [parameter(HelpMessage="Severity level for Trace")]
-        [validateSet('Critical','Warning','Information','Verbose','Warning',$null,'')]
+        [parameter(HelpMessage = "Severity level for Trace")]
+        [validateSet('Critical', 'Warning', 'Information', 'Verbose', 'Warning', $null, '')]
         [string]
         $Severity
 
@@ -380,7 +394,7 @@ function New-TelemetryTrace {
     if (!$Severity) {
         $Severity = 'Information'
     }
-    $TClient.TelemetryClient.TrackTrace($Message,$Severity)
+    $TClient.TelemetryClient.TrackTrace($Message, $Severity)
 }
 New-Alias ntt New-TelemetryTrace
 function New-TelemetryException {

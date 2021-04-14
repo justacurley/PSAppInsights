@@ -13,7 +13,7 @@ function Test-Telemetry {
     }
     #Create a new telemetry request, request is stored in Telemetry Client hashtable . Requests . $F
     ntt -message "Creating Request $F"
-    $RT = ntr -Name $F
+    $RT = ntr -Name $F 
     $ReqSuccess = $true
 
     'https://www.google.com','https://github.com','https://kldfsajklfadjklasjklasfk.com' | % {
@@ -46,11 +46,40 @@ function Test-Telemetry {
     #Push all telemetry data to app insights. This will happen every ten seconds by default
     flush
 }
+function Test-NestedExample {
+    $ErrorActionPreference = 'Stop'
+    #Create telemetry variables for this function
+    $PSStack = Get-PSCallStack | Select-Object Command, Location
+    #Name of function currently running in this scope, used for Request name
+    $F = $PSStack[0].Command
+    #Get the Telemetry Client hashtable. It's not using a global: in your script if it's default, right?
+    $T = $PSDefaultParameterValues.GetEnumerator().Where( { $_.Name -match "\:TClient" }).Value
+    #Remove a request with this commands name, useful if you are looping the function.
+    if ($T.Requests.ContainsKey($F)) {
+        flush
+        $T.Requests.Remove($F)
+    }
+    #Create a new telemetry request, request is stored in Telemetry Client hashtable . Requests . $F
+    ntt -message "Creating Request $F"
+    $RT = ntr -Name $F
+    $ReqSuccess = $true
+    try {
+        0..2 | % {
+            Test-Telemetry
+        }
+    }
+    catch {
+        ntx $_.Exception
+        $ReqSuccess = $false
+    }
+    finally {
+        stor -RT $RT -Success $ReqSuccess
+    }
+}
 ipmo $PSScriptRoot -force -verbose
 
 #Create a new telemetry operation. This operation will contain all of our telemetry requests, traces, exceptions, events, and dependencies
 $Telemetry = New-TelemetryOperation -operationName "Test-Parameters"
-#Set the value of the TClient parameter for our Telemetry functions so we don't have to provide it every time
-$PSDefaultParameterValues.Add("*Telemetry*:TClient",$Telemetry)
-Test-Telemetry
+
+Test-NestedExample
 
