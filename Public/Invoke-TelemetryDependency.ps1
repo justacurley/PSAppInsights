@@ -1,41 +1,3 @@
-function Test-Telemetry {
-    $ErrorActionPreference = 'Stop'
-    ###Telemetry###
-    $PSStack = Get-PSCallStack | Select-Object Command, Location
-    $F = $PSStack[0].Command
-    $PSDefaultParameterValues = $Global:PSDefaultParameterValues
-    #Create a new telemetry request, request is stored in Telemetry Client hashtable . Requests . $F
-    $RT = ntr -Name $F 
-    $RS = $true
-    ###Telemetry###
-    #Telemetry trace 
-
-    'https://www.google.com','https://github.com','https://kldfsajklfadjklasjklasfk.com' | % {
-        try {
-            $uri = $_
-            ntt -message "Creating new dependency for $uri"
-            #Create a new telemetry dependency, dependency only exists in this variable
-            {Invoke-WebRequest -Method Get -Uri $uri -UseBasicParsing -DisableKeepAlive} | itd -Type 'GET' -Target $URI
-        }
-        catch {
-            #send the caught exception 
-            ntx -Exception $_.Exception
-            #telemetryRequest is unsuccessful
-            $RS = $false
-        }
-    }
-    ntt -message "Disposing Request $F"
-    #Update the request with success of fail values, and Stop and Dispose() the telemetry request    
-    stor -RT $RT -Success $RS
-    #Push all telemetry data to app insights. This will happen every ten seconds by default
-    flush
-}
-ipmo 'C:\Users\alex.curley\Source\FNF.VMScaler\Telemetry' -force -verbose
-#Create a new telemetry operation. This operation will contain all of our telemetry requests, traces, exceptions, events, and dependencies
-$AppInsightsKey = '9a563b40-7b88-4ae5-af9a-cad6aec04163'
-$Telemetry = New-TelemetryOperation -operationName "Test-Parameters" -AppInsightsKey $AppInsightsKey
-#Set the value of the TClient parameter for our Telemetry functions so we don't have to provide it every time
-$PSDefaultParameterValues=@{"*Telemetry*:TClient"=$Telemetry}
 function Invoke-TelemetryDependency {
     <#
     .SYNOPSIS
@@ -197,5 +159,4 @@ function Invoke-TelemetryDependency {
         }
     }
 }
-Test-Telemetry
-
+New-Alias itd Invoke-TelemetryDependency
