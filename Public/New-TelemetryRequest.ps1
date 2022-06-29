@@ -10,6 +10,9 @@ function New-TelemetryRequest {
         [parameter(Mandatory, HelpMessage = "Name of Request. This could be the name of the Function that will have Dependencies in it")]
         [string]
         $Name,
+        [parameter(HelpMessage = "Custom properties of the request (usually psboundparameters for the function being executed)")]
+        [hashtable]
+        $CustomProperties,
         [parameter(HelpMessage = "Name of the parent request, defaults to Operation ID")]
         [string]
         $ParentName,
@@ -34,6 +37,10 @@ function New-TelemetryRequest {
     $TClient.Requests.Add($name, $TClient.TelemetryItem.StartOperationRT($Name, $TClient.OpId, $ParentID))
     #Set parent context to the operation ID
     $TClient.Requests.$name.telemetry.context.operation.id = $TClient.OpId
+    if ($CustomProperties) {
+        #TODO this returns True
+        $CustomProperties.GetEnumerator().Foreach({$TClient.Requests.$name.Telemetry.Properties.TryAdd($_.Key, ($_.Value | Out-String).Trim() )}) | Out-Null
+    }
     $TClient.Requests.$name
 }
 New-Alias ntr New-TelemetryRequest

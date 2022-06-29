@@ -26,7 +26,7 @@ function Invoke-TelemetryDependency {
     begin {
         #look up the call stack and try to find a telemetry Request in the TClient hashtable ($TClient.Requests)
         $ErrorActionPreference = 'Stop'
-        $PSStack = Get-PSCallStack | Select-Object Command, Location
+        $PSStack = Get-PSCallStack #| Select-Object Command, Location
         $F = $PSStack[0].Command
         $PSDefaultParameterValues = $Global:PSDefaultParameterValues
         try {
@@ -77,8 +77,9 @@ function Invoke-TelemetryDependency {
                 else { $AstHash.Add($element.GetHashCode(), $element) }
                 if ($element.Value -eq $Command) { continue }
                 #Try to expand a hashtable and add each key/value pair to the dictionary
-                if ($element.Splatted) {                
-                    $SplatHash = Invoke-Expression -Command "`$$($element.variablePath.UserPath)"
+                if ($element.Splatted) {      
+                    $SplatHash = $PSCmdlet.SessionState.PSVariable.GetValue($element.variablePath.UserPath)
+                    # $SplatHash = Invoke-Expression -Command "`$$($element.variablePath.UserPath)"
                     if ($SplatHash) {
                         $SplatHash.GetEnumerator() | Foreach-Object {
                             $dict.Add($_.Key, $_.Value.ToString())
@@ -159,4 +160,4 @@ function Invoke-TelemetryDependency {
         }
     }
 }
-New-Alias itd Invoke-TelemetryDependency
+Set-Alias itd Invoke-TelemetryDependency

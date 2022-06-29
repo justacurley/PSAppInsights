@@ -22,7 +22,7 @@ foreach ($functionFile in (Get-ChildItem -Path "$PrivatePath\*.ps1"))
 }
 Export-ModuleMember -Variable Telemetry_dllPath
 Export-ModuleMember -Alias @(
-    'itd',
+    # 'itd',
     'ntc',
     'ntd',
     'nte',
