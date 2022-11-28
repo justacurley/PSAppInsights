@@ -1,201 +1,58 @@
 function Test-Telemetry {
-    $ErrorActionPreference = 'Stop'
-    ###Telemetry###
-    $PSStack = Get-PSCallStack | Select-Object Command, Location
-    $F = $PSStack[0].Command
-    $PSDefaultParameterValues = $Global:PSDefaultParameterValues
-    #Create a new telemetry request, request is stored in Telemetry Client hashtable . Requests . $F
-    $RT = ntr -Name $F 
-    $RS = $true
-    ###Telemetry###
-    #Telemetry trace 
-
-    'https://www.google.com','https://github.com','https://kldfsajklfadjklasjklasfk.com' | % {
+    [CmdletBinding()]
+    param (
+        [parameter(mandatory)]
+        [string]
+        $uri
+    )
+    begin {
+        $ErrorActionPreference = 'Stop'
+        ###Telemetry###
+        $F = $MyInvocation.MyCommand.Name
+        $TimeStamp = Get-Date -f MMddhhmm
+        $PSDefaultParameterValues = $Global:PSDefaultParameterValues
+            if (-not $PSDefaultParameterValues['*Telemetry*:TClient'] -or $PSDefaultParameterValues['*Telemetry*:TClient'].TelemetryItem.TeleClient.Context.Operation.Name -ne "Test-Telemetry_$TimeStamp") {            
+                $AppInsightsKey = '69fd389e-416e-47c3-b511-f83d22ab18ae'
+                $Telemetry = nto -operationName "Test-Telemetry_$TimeStamp" -AppInsightsKey $AppInsightsKey
+                ntt "Started new operation"
+                #Set the value of the TClient parameter for our Telemetry functions so we don't have to provide it every time
+                $PSDefaultParameterValues=@{"*Telemetry*:TClient"=$Telemetry}
+            }
+        #Create a new telemetry request, request is stored in Telemetry Client hashtable . Requests . $F
+        $RT = New-TelemetryRequest -Name $F -CustomProperties $PSBoundParameters
+        $RS = $true
+        ###Telemetry###
+        #Telemetry trace 
+    }
+    process {        
         try {
-            $uri = $_
-            ntt -message "Creating new dependency for $uri"
+            New-TelemetryTrace -message "Creating new dependency for $uri"
             #Create a new telemetry dependency, dependency only exists in this variable
-            {Invoke-WebRequest -Method Get -Uri $uri -UseBasicParsing -DisableKeepAlive} | itd -Type 'GET' -Target $URI
+            {Invoke-WebRequest -Method Get -Uri $uri -UseBasicParsing -DisableKeepAlive} | Invoke-TelemetryDependency -Type 'GET' -Target $URI
         }
         catch {
             #send the caught exception 
-            ntx -Exception $_.Exception
+            New-TelemetryException -Exception $_.Exception
             #telemetryRequest is unsuccessful
             $RS = $false
-        }
+        }        
     }
-    ntt -message "Disposing Request $F"
-    #Update the request with success of fail values, and Stop and Dispose() the telemetry request    
-    stor -RT $RT -Success $RS
-    #Push all telemetry data to app insights. This will happen every ten seconds by default
-    flush
+    end {
+        New-TelemetryTrace -message "Disposing Request $F"
+        #Update the request with success of fail values, and Stop and Dispose() the telemetry request    
+        Stop-TelemetryOperationRequest -RT $RT -Success $RS
+        #Push all telemetry data to app insights. This will happen every ten seconds by default
+        Send-TelemetryData
+    }
 }
-ipmo 'C:\Users\alex.curley\Source\FNF.VMScaler\Telemetry' -force -verbose
+ipmo 'C:\Users\acurley\source\PSAppInsights' -force -verbose
 #Create a new telemetry operation. This operation will contain all of our telemetry requests, traces, exceptions, events, and dependencies
-$AppInsightsKey = '9a563b40-7b88-4ae5-af9a-cad6aec04163'
-$Telemetry = New-TelemetryOperation -operationName "Test-Parameters" -AppInsightsKey $AppInsightsKey
+$AppInsightsKey = '69fd389e-416e-47c3-b511-f83d22ab18ae'
+$TimeStamp = Get-Date -f MMddhhmm
+$Telemetry = nto -operationName "Test-Telemetry_$TimeStamp" -AppInsightsKey $AppInsightsKey
 #Set the value of the TClient parameter for our Telemetry functions so we don't have to provide it every time
 $PSDefaultParameterValues=@{"*Telemetry*:TClient"=$Telemetry}
-function Invoke-TelemetryDependency {
-    <#
-    .SYNOPSIS
-        Receives ScritpBlock pipeline input and wraps it in telemetry dependency.
-    .DESCRIPTION
-        Using the AST, this will attempt to convert parameters and their supplied values from the ScriptBlock into CustomDimensions in the Telemetry Dependency. 
-    #>
-    [CmdletBinding()]
-    param (
-        [parameter(ValueFromPipeline, HelpMessage = "Scriptblock of command to be run")]
-        [scriptblock]
-        $InputObject,
-        [parameter(HelpMessage = "Type of dependency (e.g. AzAPI, CitrixSDK)")]
-        [string]
-        $Type,
-        [parameter(HelpMessage = "URI or Server")]
-        [string]
-        $Target,
-        [parameter(HelpMessage = "Use this if your dependency is not running inside a function which has been decorated with telemetry code")]
-        [string]
-        $ParentName,
-        [parameter(Mandatory, HelpMessage = "TelemetryClient object created from New-TelemetryClient")]
-        [hashtable]
-        $TClient
-    )
-    begin {
-        #look up the call stack and try to find a telemetry Request in the TClient hashtable ($TClient.Requests)
-        $ErrorActionPreference = 'Stop'
-        $PSStack = Get-PSCallStack | Select-Object Command, Location
-        $F = $PSStack[0].Command
-        $PSDefaultParameterValues = $Global:PSDefaultParameterValues
-        try {
-            if (!$ParentName) {
-                $ParentName = $F        
-                foreach ($Command in $PSStack) {
-                    if ($TClient.Requests.Keys -Contains $Command.Command) {
-                        $ParentName = $Command.Command                    
-                        break
-                    }
-                }
-            }
-            if ($ParentName -eq $F) {
-                New-TelemetryTrace -message ($PSStack | ConvertTo-Json)
-                New-TelemetryTrace -Message "Invoke-TelemetryDependency could not find a parent request for $F."
-            }    
-        }
-        catch {
-            ntx $_.Exception
-        }
-    }    
-   
-    process {
-
-        [ScriptBlock]$predicate1 = {
-            param ([System.Management.Automation.Language.Ast]$Ast)
-            [bool]$returnValue = $false
-            if ($Ast -is [System.Management.Automation.Language.CommandAst]) {
-                $returnValue = $true 
-            }                
-            return $returnValue
-        }
-        try {
-            [System.Management.Automation.Language.Ast[]]$commandAst = $InputObject.Ast.FindAll($predicate1, $true)
-            #Grab the first command if there are more than one (e.g. {get-thing | where-object} is two commands).
-            #We only care about the first command in the pipeline, but we care about the extent of that commands parent AST object
-            if ($commandAst.Count -gt 1) {
-                $CommandAst = $commandAst[0]
-            }
-            $Command = $commandAst.CommandElements[0].Value
-            $Data = $commandAst.extent.Text
-            $dict = New-Object 'system.collections.generic.dictionary[[string],[string]]'
-            $AstHash = @{}
-            #Parse the commandAst for individual commandelements. 
-            for ($i = 0; $i -lt $commandAst.CommandElements.Count; $i++) {
-                $element = $commandAst.CommandElements[$i] 
-                if ($AstHash.ContainsKey($element.GetHashCode())) { continue }
-                else { $AstHash.Add($element.GetHashCode(), $element) }
-                if ($element.Value -eq $Command) { continue }
-                #Try to expand a hashtable and add each key/value pair to the dictionary
-                if ($element.Splatted) {                
-                    $SplatHash = Invoke-Expression -Command "`$$($element.variablePath.UserPath)"
-                    if ($SplatHash) {
-                        $SplatHash.GetEnumerator() | Foreach-Object {
-                            $dict.Add($_.Key, $_.Value.ToString())
-                        }
-                    }
-                    else {
-                        New-TelemetryTrace -Message "Could not expand splatted variable $($element.variablePath.UserPath)"
-                    }
-                }
-                elseif ($element.ParameterName) {
-                    #switch statement with an argument
-                    if ($element.ParameterName -and ($null -ne $element.Argument)) {
-                        $VariableValue = $element.Argument.Extent.Text
-                    } 
-                    else {
-                        #Assume the next element is the parameter value, add current element name and next element extent.text
-                        $ParameterValue = $commandAst.CommandElements[($i + 1)]
-                        #Next element is another parameter, so maybe this current parameter is a switch?
-                        if ($ParameterValue -is [System.Management.Automation.Language.CommandParameterAst]) {
-                            $VariableValue = $true
-                        }
-                        #Next element is a BareWord or Int, so no need to invoke-ex
-                        elseif (($ParameterValue -is [System.Management.Automation.Language.StringConstantExpressionAst]) -or ($ParameterValue -is [System.Management.Automation.Language.ConstantExpressionAst])) {
-                            $VariableValue = $ParameterValue.Extent.Text
-                            $AstHash.Add($ParameterValue.GetHashCode(), $ParameterValue)
-                        }
-                        #Switch statement without an argument
-                        elseif ($null -eq $ParameterValue) {
-                            $VariableValue = $true
-                        }
-                        else {
-                            $VariableValue = Invoke-Expression $ParameterValue.Extent.Text -ErrorAction Ignore
-                            $AstHash.Add($ParameterValue.GetHashCode(), $ParameterValue)
-                        }
-                    }
-                    if (!$VariableValue) { $VariableValue = $ParameterValue.Extent.Text }
-                    $dict.Add($element.ParameterName, ($VariableValue | out-string).TrimEnd())
-                }
-            }            
-        }
-        catch {
-            New-TelemetryException $_.Exception
-        }
-        
-        #Create the dependency, add the custom properties retrieved from AST, and invoke the scriptblock
-        try {
-            $DT = New-TelemetryDependency -Command $command -Data $Data -Type $Type -Target $Target -ParentName $ParentName
-            $dict.GetEnumerator() | Foreach-Object {                
-                [void]($DT.Telemetry.Properties.TryAdd($_.Key, $_.Value))
-            }
-            if ($Command -ne 'Invoke-WebRequest') {
-                Invoke-Command $InputObject                
-                Update-TelemetryDependency $DT
-            }
-            else {
-                [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-                $Response = Invoke-Command $InputObject 
-                Update-TelemetryDependency $DT -Code $Response.StatusCode
-            }
-        }
-        catch {
-            New-TelemetryException $_.Exception
-            if ($Command -ne 'Invoke-WebRequest') {          
-                Update-TelemetryDependency $DT -Catch
-            }
-            else {
-                Update-TelemetryDependency $DT -Catch -Code $_.Exception.Response.StatusCode.Value__
-            }
-            throw $_
-        }
-        finally {
-            if ($Response) {
-                #Return Invoke-Webrequest asif Invoke-RestMethod
-                $Response.Content | ConvertFrom-Json
-            }
-            Stop-TelemetryOperationDependency $DT 
-            Remove-Variable -Name DT
-        }
-    }
-}
-Test-Telemetry
-
+Test-Telemetry -uri 'https://google.com'
+Test-Telemetry -uri 'https://github.com'
+Test-Telemetry -uri 'https://klasqioiowmioifjweifojiowfn.com'
+Stop-TelemetryOperation

@@ -130,7 +130,7 @@ function Invoke-TelemetryDependency {
             $dict.GetEnumerator() | Foreach-Object {                
                 [void]($DT.Telemetry.Properties.TryAdd($_.Key, $_.Value))
             }
-            if ($Command -ne 'Invoke-WebRequest') {
+            if ($Command -ne 'Invoke-RestMethod') {
                 Invoke-Command $InputObject                
                 Update-TelemetryDependency $DT
             }
@@ -142,7 +142,7 @@ function Invoke-TelemetryDependency {
         }
         catch {
             New-TelemetryException $_.Exception
-            if ($Command -ne 'Invoke-WebRequest') {          
+            if ($Command -ne 'Invoke-RestMethod') {          
                 Update-TelemetryDependency $DT -Catch
             }
             else {
